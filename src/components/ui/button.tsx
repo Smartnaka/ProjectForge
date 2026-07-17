@@ -1,3 +1,4 @@
+import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 import type { ButtonHTMLAttributes } from "react";
 
