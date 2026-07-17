@@ -1,21 +1,66 @@
 "use client";
-import { useForm } from "react-hook-form";
-import { useRouter } from "next/navigation";
-import { authSchema } from "@/lib/schemas";
-import { Card } from "@/components/ui/card";
+
+import { useToast } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { authCopy, routes } from "@/data/content";
+import { authSchema } from "@/lib/schemas";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 import type { z } from "zod";
+
+type AuthForm = z.infer<typeof authSchema>;
+
+const authDelayMs = 500;
 
 export function AuthCard({ mode }: { mode: "login" | "register" | "forgot" }) {
   const router = useRouter();
-  const { register, handleSubmit, formState: { errors } } = useForm<z.infer<typeof authSchema>>();
-  const handleAuthSubmit = () => {
-    if (mode === "forgot") {
-      router.push("/auth/login");
+  const { notify } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { register, handleSubmit, setError, formState: { errors } } = useForm<AuthForm>({ defaultValues: { email: "", password: "" } });
+
+  async function handleAuthSubmit(values: AuthForm) {
+    const parsed = authSchema.safeParse(mode === "forgot" ? { ...values, password: "temporary-password" } : values);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const field = issue.path[0];
+        if (field === "email" || field === "password") setError(field, { message: issue.message });
+      }
       return;
     }
-    router.push("/dashboard");
-  };
+    setIsSubmitting(true);
+    await new Promise((resolve) => window.setTimeout(resolve, authDelayMs));
+    setIsSubmitting(false);
+    if (mode === "forgot") {
+      notify({ tone: "success", title: "Recovery email queued", description: "If an account exists, password reset instructions will be sent." });
+      router.push(routes.login);
+      return;
+    }
+    notify({ tone: "success", title: mode === "login" ? "Signed in" : "Workspace created", description: "Authentication is ready to connect to Supabase in production." });
+    router.push(routes.dashboard);
+  }
 
-  return <main className="grid min-h-screen place-items-center p-6"><Card className="w-full max-w-md"><h1 className="text-2xl font-bold">{mode === "login" ? "Welcome back" : mode === "register" ? "Create your workspace" : "Reset password"}</h1><p className="mt-2 text-sm text-[var(--muted)]">Supabase Auth ready form with email verification and password recovery flows.</p><form className="mt-6 space-y-4" onSubmit={handleSubmit(handleAuthSubmit)}><input className="w-full rounded-xl border border-[var(--border)] bg-transparent px-4 py-3" placeholder="Email" {...register("email", { required: "Email is required", validate: (value) => authSchema.shape.email.safeParse(value).success || "Please enter a valid email address" })} />{errors.email && <p className="text-sm text-red-300">{errors.email.message}</p>}{mode !== "forgot" && <><input className="w-full rounded-xl border border-[var(--border)] bg-transparent px-4 py-3" placeholder="Password" type="password" {...register("password", { required: "Password is required", validate: (value) => authSchema.shape.password.safeParse(value).success || "Password must be at least 8 characters" })} />{errors.password && <p className="text-sm text-red-300">{errors.password.message}</p>}</>}<Button className="w-full bg-violet-500 text-white">Continue</Button></form><div className="mt-4 flex justify-between text-sm text-[var(--muted)]"><a href="/auth/login">Login</a><a href="/auth/register">Register</a><a href="/auth/forgot-password">Forgot</a></div></Card></main>;
+  return (
+    <main className="grid min-h-screen place-items-center bg-[var(--background)] p-6">
+      <Card className="w-full max-w-md">
+        <h1 className="text-2xl font-bold">{authCopy.title[mode]}</h1>
+        <p className="mt-2 text-sm text-[var(--muted)]">{authCopy.subtitle}</p>
+        <form className="mt-6 space-y-4" onSubmit={handleSubmit(handleAuthSubmit)} noValidate>
+          <div>
+            <Input aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "email-error" : undefined} placeholder={authCopy.emailPlaceholder} disabled={isSubmitting} {...register("email")} />
+            {errors.email && <p id="email-error" className="mt-2 text-sm font-medium text-red-600 dark:text-red-300">{errors.email.message}</p>}
+          </div>
+          {mode !== "forgot" && <div><Input aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? "password-error" : undefined} placeholder={authCopy.passwordPlaceholder} type="password" disabled={isSubmitting} {...register("password")} />{errors.password && <p id="password-error" className="mt-2 text-sm font-medium text-red-600 dark:text-red-300">{errors.password.message}</p>}</div>}
+          <Button className="w-full" disabled={isSubmitting}>{isSubmitting ? "Please wait..." : authCopy.continue}</Button>
+        </form>
+        <nav className="mt-4 flex justify-between text-sm font-medium text-[var(--muted)]" aria-label="Authentication links">
+          <a className="hover:text-[var(--foreground)]" href={routes.login}>{authCopy.login}</a>
+          <a className="hover:text-[var(--foreground)]" href={routes.register}>{authCopy.register}</a>
+          <a className="hover:text-[var(--foreground)]" href={routes.forgotPassword}>{authCopy.forgot}</a>
+        </nav>
+      </Card>
+    </main>
+  );
 }

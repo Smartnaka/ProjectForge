@@ -1,19 +1,218 @@
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql" url = env("DATABASE_URL") }
-enum ProjectStatus { DISCOVERY PLANNING ACTIVE ARCHIVED COMPLETED }
-enum Priority { LOW MEDIUM HIGH URGENT }
-enum WorkStatus { BACKLOG TODO DOING TESTING DONE }
-model User { id String @id @default(uuid()) email String @unique name String? projects Project[] notifications Notification[] createdAt DateTime @default(now()) }
-model Project { id String @id @default(uuid()) ownerId String name String description String? platform String status ProjectStatus @default(PLANNING) priority Priority @default(MEDIUM) deadline DateTime? favorite Boolean @default(false) archivedAt DateTime? tags Tag[] discoveries Discovery? requirements Requirement[] stories UserStory[] features Feature[] endpoints ApiEndpoint[] tables DbTable[] tasks Task[] docs Document[] notes Note[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt owner User @relation(fields:[ownerId], references:[id], onDelete:Cascade) }
-model Tag { id String @id @default(uuid()) name String projectId String project Project @relation(fields:[projectId], references:[id], onDelete:Cascade) }
-model Discovery { id String @id @default(uuid()) projectId String @unique problem String? targetUsers String? painPoints String? competitors String? valueProposition String? successMetrics String? businessGoals String? project Project @relation(fields:[projectId], references:[id], onDelete:Cascade) }
-model Requirement { id String @id @default(uuid()) projectId String type String title String body String? position Int @default(0) project Project @relation(fields:[projectId], references:[id], onDelete:Cascade) }
-model UserStory { id String @id @default(uuid()) projectId String title String description String? priority Priority @default(MEDIUM) acceptanceCriteria String? status WorkStatus @default(BACKLOG) project Project @relation(fields:[projectId], references:[id], onDelete:Cascade) }
-model Feature { id String @id @default(uuid()) projectId String title String estimatedTime String? difficulty String? dependencies String? status WorkStatus @default(BACKLOG) priority Priority @default(MEDIUM) project Project @relation(fields:[projectId], references:[id], onDelete:Cascade) }
-model DbTable { id String @id @default(uuid()) projectId String name String columns DbColumn[] project Project @relation(fields:[projectId], references:[id], onDelete:Cascade) }
-model DbColumn { id String @id @default(uuid()) tableId String name String type String primaryKey Boolean @default(false) foreignKey String? nullable Boolean @default(false) table DbTable @relation(fields:[tableId], references:[id], onDelete:Cascade) }
-model ApiEndpoint { id String @id @default(uuid()) projectId String method String route String description String? authRequired Boolean @default(true) headers Json? request Json? response Json? validation Json? statusCodes Json? example Json? project Project @relation(fields:[projectId], references:[id], onDelete:Cascade) }
-model Task { id String @id @default(uuid()) projectId String title String status WorkStatus @default(BACKLOG) position Int @default(0) project Project @relation(fields:[projectId], references:[id], onDelete:Cascade) }
-model Document { id String @id @default(uuid()) projectId String title String markdown String @default("") project Project @relation(fields:[projectId], references:[id], onDelete:Cascade) }
-model Note { id String @id @default(uuid()) projectId String markdown String project Project @relation(fields:[projectId], references:[id], onDelete:Cascade) }
-model Notification { id String @id @default(uuid()) userId String title String read Boolean @default(false) user User @relation(fields:[userId], references:[id], onDelete:Cascade) }
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ProjectStatus {
+  DISCOVERY
+  PLANNING
+  ACTIVE
+  ARCHIVED
+  COMPLETED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum WorkStatus {
+  BACKLOG
+  TODO
+  DOING
+  TESTING
+  DONE
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  name          String?
+  projects      Project[]
+  notifications Notification[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([createdAt])
+}
+
+model Project {
+  id           String        @id @default(uuid())
+  ownerId      String
+  name         String
+  description  String?
+  platform     String
+  status       ProjectStatus @default(PLANNING)
+  priority     Priority      @default(MEDIUM)
+  deadline     DateTime?
+  favorite     Boolean       @default(false)
+  archivedAt   DateTime?
+  tags         Tag[]
+  discoveries  Discovery?
+  requirements Requirement[]
+  stories      UserStory[]
+  features     Feature[]
+  endpoints    ApiEndpoint[]
+  tables       DbTable[]
+  tasks        Task[]
+  docs         Document[]
+  notes        Note[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerId, name])
+  @@index([ownerId, status, updatedAt])
+  @@index([ownerId, priority])
+  @@index([archivedAt])
+}
+
+model Tag {
+  id        String  @id @default(uuid())
+  name      String
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([name])
+}
+
+model Discovery {
+  id               String  @id @default(uuid())
+  projectId        String  @unique
+  problem          String?
+  targetUsers      String?
+  painPoints       String?
+  competitors      String?
+  valueProposition String?
+  successMetrics   String?
+  businessGoals    String?
+  project          Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Requirement {
+  id        String  @id @default(uuid())
+  projectId String
+  type      String
+  title     String
+  body      String?
+  position  Int     @default(0)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, position])
+}
+
+model UserStory {
+  id                 String     @id @default(uuid())
+  projectId          String
+  title              String
+  description        String?
+  priority           Priority   @default(MEDIUM)
+  acceptanceCriteria String?
+  status             WorkStatus @default(BACKLOG)
+  project            Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status, priority])
+}
+
+model Feature {
+  id            String     @id @default(uuid())
+  projectId     String
+  title         String
+  estimatedTime String?
+  difficulty    String?
+  dependencies  String?
+  status        WorkStatus @default(BACKLOG)
+  priority      Priority   @default(MEDIUM)
+  project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status, priority])
+}
+
+model DbTable {
+  id        String     @id @default(uuid())
+  projectId String
+  name      String
+  columns   DbColumn[]
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+}
+
+model DbColumn {
+  id         String  @id @default(uuid())
+  tableId    String
+  name       String
+  type       String
+  primaryKey Boolean @default(false)
+  foreignKey String?
+  nullable   Boolean @default(false)
+  table      DbTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@unique([tableId, name])
+}
+
+model ApiEndpoint {
+  id           String  @id @default(uuid())
+  projectId    String
+  method       String
+  route        String
+  description  String?
+  authRequired Boolean @default(true)
+  headers      Json?
+  request      Json?
+  response     Json?
+  validation   Json?
+  statusCodes  Json?
+  example      Json?
+  project      Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, method, route])
+  @@index([projectId, authRequired])
+}
+
+model Task {
+  id        String     @id @default(uuid())
+  projectId String
+  title     String
+  status    WorkStatus @default(BACKLOG)
+  position  Int        @default(0)
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status, position])
+}
+
+model Document {
+  id        String  @id @default(uuid())
+  projectId String
+  title     String
+  markdown  String  @default("")
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, title])
+}
+
+model Note {
+  id        String  @id @default(uuid())
+  projectId String
+  markdown  String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt])
+}
