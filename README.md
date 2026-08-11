@@ -4,7 +4,7 @@ ProjectForge is a production-oriented Next.js planning workspace for teams to de
 
 ## Production readiness status
 
-This repository is structured to run as a polished frontend with a browser-backed repository while the hosted API/Supabase integration is connected. The data layer is isolated behind feature repositories so the local implementation can be replaced by server actions or route handlers without rewriting page components.
+The workspace is now wired for real authenticated, database-backed project data. Dashboard and project routes call protected API routes, API routes validate Supabase bearer tokens, and persistence is handled through Prisma/PostgreSQL. Local development may opt into a clearly marked auth bypass with `ENABLE_DEV_AUTH=true`; never enable that flag in production.
 
 ## Stack
 
@@ -12,17 +12,21 @@ This repository is structured to run as a polished frontend with a browser-backe
 - Tailwind CSS design tokens and reusable UI primitives
 - TanStack Query for caching, retries, loading states, and mutations
 - React Hook Form and Zod for form state and validation
-- Prisma schema for PostgreSQL persistence
-- Framer Motion, Recharts, and Lucide for interaction, charts, and icons
+- Supabase Auth for registration, login, password recovery, and JWT validation
+- Prisma with PostgreSQL persistence
+- Recharts and Lucide for workspace charts and icons
 
 ## Getting started
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
 Open `http://localhost:3000`.
+
+For local API testing without Supabase, set `ENABLE_DEV_AUTH=true` in `.env.local`. Production deployments must leave it unset or `false`.
 
 ## Quality gates
 
@@ -34,37 +38,27 @@ npm run build
 
 ## Environment variables
 
-Create `.env.local` for local development and configure production secrets in your deployment platform.
-
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | Required for Prisma migrations/API persistence | PostgreSQL connection string used by Prisma. |
-| `NEXT_PUBLIC_SUPABASE_URL` | Required when Supabase auth is enabled | Public Supabase project URL. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Required when Supabase auth is enabled | Public Supabase anon key. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only when admin operations are enabled | Service role key. Never expose to the browser. |
+| `DATABASE_URL` | Yes | PostgreSQL connection string used by Prisma migrations and API routes. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Public Supabase project URL used by browser auth and server token validation. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Public Supabase anon key used by browser auth and server token validation. |
+| `ENABLE_DEV_AUTH` | Development only | Optional local API auth bypass. Must be `false` or unset in production. |
 
 ## Folder structure
 
 ```text
-src/app                 App Router routes, metadata, loading, error, and not-found boundaries
+src/app                 App Router pages, API routes, metadata, loading, error, not-found boundaries
 src/components          Shared UI, feedback, marketing, and workspace components
-src/features/projects   Project feature types, query keys, repository, and mutations
-src/data                Centralized content and legacy static planning taxonomies
-src/lib                 Cross-cutting schemas and utilities
+src/features/projects   Project feature types, query keys, and browser API repository
+src/data                User-facing copy and static marketing taxonomy only
+src/lib                 Auth, environment, Prisma, Supabase, schemas, utilities
 prisma                  Database schema and migrations
 ```
 
-## Architecture notes
-
-- UI components do not read storage directly. Project data access is contained in `src/features/projects/project-repository.ts`.
-- TanStack Query query keys and mutations live in `src/features/projects/queries.ts` to keep server-state behavior consistent.
-- User-facing copy and route constants live in `src/data/content.ts` to reduce hardcoded strings in route components.
-- Global feedback is provided through `ToastProvider`, and destructive actions require confirmation dialogs.
-- Error, loading, and not-found boundaries are defined at the app level for graceful fallbacks.
-
 ## Database and migrations
 
-The Prisma schema includes normalized project planning entities with cascading deletes, uniqueness constraints, and indexes for owner/status/priority/read queries. Apply migrations with:
+The Prisma schema includes normalized project planning entities with cascading deletes, uniqueness constraints, and indexes for owner/status/priority/read queries. Apply migrations in production with:
 
 ```bash
 npx prisma migrate deploy
@@ -76,17 +70,17 @@ For local schema iteration:
 npx prisma migrate dev
 ```
 
-## Security checklist
+## Deployment checklist
 
-- Validate all form and mutation payloads with Zod before persistence.
-- Keep service role keys server-only.
-- Add route middleware and Supabase session validation before enabling customer data.
-- Add server-side authorization checks for every project by `ownerId`.
-- Add API rate limiting for auth and AI-generation endpoints.
-- Continue relying on React escaping for rendered text and avoid `dangerouslySetInnerHTML` for user content.
+1. Provision PostgreSQL and set `DATABASE_URL`.
+2. Provision Supabase Auth and set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+3. Run `npx prisma migrate deploy` during deployment or release promotion.
+4. Verify `/api/health` returns `{ "status": "ok" }` after deployment.
+5. Keep `ENABLE_DEV_AUTH` disabled in production.
 
-## Known follow-up work
+## Security notes
 
-- Replace the browser-backed repository with authenticated server-side persistence.
-- Add role-based workspace memberships when organizations are introduced.
-- Add integration/e2e tests once the API contract is finalized.
+- All project API routes require an authenticated Supabase bearer token unless the local-only dev bypass is explicitly enabled outside production.
+- Project reads/writes are scoped by authenticated `ownerId`.
+- Mutation payloads are validated with Zod before persistence.
+- Service-role credentials are intentionally not used by browser code.

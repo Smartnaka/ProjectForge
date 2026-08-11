@@ -2,9 +2,12 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useToast } from "@/components/feedback/toast";
 import { authCopy, routes } from "@/data/content";
+import { createBrowserSupabaseClient } from "@/lib/supabase-client";
 import { authSchema } from "@/lib/schemas";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 
@@ -12,14 +15,32 @@ type AuthForm = z.infer<typeof authSchema>;
 
 export function AuthCard({ mode }: { mode: "login" | "register" | "forgot" }) {
   const router = useRouter();
+  const { notify } = useToast();
+  const [busy, setBusy] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<AuthForm>();
 
-  function handleAuthSubmit() {
-    if (mode === "forgot") {
-      router.push(routes.login);
-      return;
+  async function handleAuthSubmit(values: AuthForm) {
+    setBusy(true);
+    try {
+      const supabase = createBrowserSupabaseClient();
+      if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(values.email, { redirectTo: `${window.location.origin}${routes.login}` });
+        if (error) throw error;
+        notify({ title: "Password reset email sent", description: "Check your inbox for the recovery link.", tone: "success" });
+        router.push(routes.login);
+        return;
+      }
+      const result = mode === "register"
+        ? await supabase.auth.signUp({ email: values.email, password: values.password })
+        : await supabase.auth.signInWithPassword({ email: values.email, password: values.password });
+      if (result.error) throw result.error;
+      notify({ title: mode === "register" ? "Account created" : "Signed in", tone: "success" });
+      router.push(routes.dashboard);
+    } catch (error) {
+      notify({ title: "Authentication failed", description: error instanceof Error ? error.message : "Please try again.", tone: "error" });
+    } finally {
+      setBusy(false);
     }
-    router.push(routes.dashboard);
   }
 
   return (
@@ -28,30 +49,10 @@ export function AuthCard({ mode }: { mode: "login" | "register" | "forgot" }) {
         <h1 className="text-2xl font-bold">{authCopy.title[mode]}</h1>
         <p className="mt-2 text-sm text-[var(--muted)]">{authCopy.subtitle}</p>
         <form className="mt-6 space-y-4" onSubmit={handleSubmit(handleAuthSubmit)}>
-          <input
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30"
-            placeholder={authCopy.emailPlaceholder}
-            {...register("email", {
-              required: authCopy.emailRequired,
-              validate: (value) => authSchema.shape.email.safeParse(value).success || authCopy.emailInvalid,
-            })}
-          />
+          <input className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30" placeholder={authCopy.emailPlaceholder} autoComplete="email" {...register("email", { required: authCopy.emailRequired, validate: (value) => authSchema.shape.email.safeParse(value).success || authCopy.emailInvalid })} />
           {errors.email && <p className="text-sm font-medium text-red-600 dark:text-red-300">{errors.email.message}</p>}
-          {mode !== "forgot" && (
-            <>
-              <input
-                className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30"
-                placeholder={authCopy.passwordPlaceholder}
-                type="password"
-                {...register("password", {
-                  required: authCopy.passwordRequired,
-                  validate: (value) => authSchema.shape.password.safeParse(value).success || authCopy.passwordInvalid,
-                })}
-              />
-              {errors.password && <p className="text-sm font-medium text-red-600 dark:text-red-300">{errors.password.message}</p>}
-            </>
-          )}
-          <Button className="w-full">{authCopy.continue}</Button>
+          {mode !== "forgot" && <><input className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30" placeholder={authCopy.passwordPlaceholder} type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} {...register("password", { required: authCopy.passwordRequired, validate: (value) => authSchema.shape.password.safeParse(value).success || authCopy.passwordInvalid })} />{errors.password && <p className="text-sm font-medium text-red-600 dark:text-red-300">{errors.password.message}</p>}</>}
+          <Button className="w-full" disabled={busy}>{busy ? "Please wait..." : authCopy.continue}</Button>
         </form>
         <div className="mt-4 flex justify-between text-sm font-medium text-[var(--muted)]">
           <a className="hover:text-[var(--foreground)]" href={routes.login}>{authCopy.login}</a>

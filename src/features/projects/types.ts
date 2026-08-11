@@ -14,7 +14,8 @@ export type Project = {
   favorite: boolean;
   archived: boolean;
   score: number;
-  activity: string[];
+  activity?: string[];
+  counts?: { tasks: number; requirements: number; stories: number; features: number; endpoints: number; tables: number; docs: number };
   createdAt: string;
   updatedAt: string;
 };

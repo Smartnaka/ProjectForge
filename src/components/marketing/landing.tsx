@@ -2,10 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { features } from "@/data/mock";
-import { brand, landingCopy, previewCopy, routes } from "@/data/content";
+import { brand, landingCopy, marketingFeatures, previewCopy, routes } from "@/data/content";
 import { motion } from "framer-motion";
-import { ArrowRight, CheckCircle2, GitBranch, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, Database, GitBranch, Layers3, Search, Sparkles, TestTube2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export function LandingPage() {
@@ -53,13 +52,16 @@ export function LandingPage() {
           <h2 className="mt-2 text-3xl font-bold">{landingCopy.features.title}</h2>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {features.map((feature) => (
+          {marketingFeatures.map((feature, index) => {
+            const Icon = [Sparkles, Layers3, Database, GitBranch, TestTube2, Search][index];
+            return (
             <Card key={feature.title} className="group">
-              <feature.icon className="mb-5 text-violet-600 dark:text-violet-300" />
+              <Icon className="mb-5 text-violet-600 dark:text-violet-300" />
               <h3 className="font-semibold">{feature.title}</h3>
               <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{feature.body}</p>
             </Card>
-          ))}
+          );
+          })}
         </div>
       </section>
 
