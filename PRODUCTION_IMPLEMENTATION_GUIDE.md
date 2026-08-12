@@ -2,7 +2,7 @@
 
 ## 0. Scope and non-goals
 
-This guide is a blueprint only. It intentionally does not implement backend changes. It is based on the inspected repository state after reverting the previous implementation attempt. The current codebase is a Next.js frontend with a Prisma schema and browser-backed demo data; production work should preserve that shape and replace demo behavior systematically.
+This guide tracks the production backend implementation now present in the repository. The current codebase is a Next.js App Router application with Supabase authentication, protected API route handlers, Prisma/PostgreSQL persistence, and database-backed project dashboard/detail flows. Remaining sections identify future module expansion work beyond the implemented project foundation.
 
 ## 1. Existing project analysis
 
@@ -12,7 +12,7 @@ This guide is a blueprint only. It intentionally does not implement backend chan
 src/app/                         Next.js App Router pages and route-level boundaries
 src/app/auth/*/page.tsx          Login, registration, forgot-password pages
 src/app/dashboard/page.tsx       Dashboard page wrapper
-src/app/projects/[id]/page.tsx   Project detail page wrapper; does not currently read id
+src/app/projects/[id]/page.tsx   Project detail page wrapper; passes id into the workspace query
 src/components/marketing         Landing page UI
 src/components/workspace         Auth, dashboard, project workspace UI
 src/components/ui                Button, card, input, skeleton, empty state primitives
@@ -30,34 +30,34 @@ prisma                           Prisma schema and migration SQL
 - TanStack Query is configured globally in `src/components/providers.tsx`, but only the project repository abstraction is prepared to use it.
 - React Hook Form is used in auth forms.
 - Zod validates auth and project creation forms in `src/lib/schemas.ts`.
-- Prisma and `@prisma/client` are installed and schema files exist, but runtime database access is not wired into the application.
-- Supabase client dependency is installed, but no Supabase client is created and no auth API calls are made.
+- Prisma and `@prisma/client` are installed, generated during install/build, and used by protected API route handlers through `src/lib/prisma.ts`.
+- Supabase client utilities are implemented for browser authentication and server-side bearer token validation.
 - Recharts powers the dashboard chart.
 - Framer Motion powers landing/project animations.
 - Vercel is the implied deployment target through `vercel.json`.
 
 ### 1.3 Current backend/API architecture
 
-There are no `src/app/api/**/route.ts` files in the current repository. The only backend-adjacent code is the Prisma schema and migration folder. Runtime CRUD behavior lives in `src/features/projects/project-repository.ts`, which reads and writes `window.localStorage` and returns seed projects when storage is empty.
+Implemented API route handlers exist for health checks and project list/create/detail/archive operations. Runtime project CRUD behavior now goes through `src/features/projects/project-repository.ts`, which calls authenticated internal APIs instead of localStorage.
 
 ### 1.4 Existing database code
 
-`prisma/schema.prisma` defines a PostgreSQL data model for users, projects, tags, discovery, requirements, user stories, features, database tables/columns, API endpoints, tasks, documents, notes, and notifications. `prisma.config.ts` points Prisma at `DATABASE_URL`, falling back to `postgresql://postgres:postgres@localhost:5432/projectforge`. One migration file adds indexes/constraints and a couple of columns, but it is not a complete initial schema migration for a fresh production database.
+`prisma/schema.prisma` defines a PostgreSQL data model for users, projects, tags, discovery, requirements, user stories, features, database tables/columns, API endpoints, tasks, documents, notes, and notifications. `prisma.config.ts` points Prisma at `DATABASE_URL`, falling back to `postgresql://postgres:postgres@localhost:5432/projectforge`. The production readiness migration is a full initial PostgreSQL migration generated from the Prisma schema, including tables, enums, constraints, indexes, and foreign keys.
 
 ### 1.5 Authentication and authorization
 
-The auth pages render `AuthCard`. `AuthCard` validates email/password locally and then redirects to `/dashboard` for login/register or `/auth/login` for forgot password. No Supabase auth call, session creation, token refresh, email verification, logout, or protected-route check exists. Authorization is absent because there is no server/API layer.
+The auth pages render `AuthCard`, which calls Supabase sign-up, sign-in, and password-reset APIs. API authorization is enforced by validating Supabase bearer tokens in `requireUser`; local development can opt into `ENABLE_DEV_AUTH=true`.
 
 ### 1.6 State management and data flow
 
-`src/components/providers.tsx` creates a TanStack `QueryClient` with a 30-second stale time. `src/features/projects/queries.ts` defines query keys and mutations. The repository functions are asynchronous and intentionally shaped like API calls, but they use localStorage plus artificial delay. This is a good seam for production replacement.
+`src/components/providers.tsx` creates a TanStack `QueryClient` with a 30-second stale time. `src/features/projects/queries.ts` defines query keys and mutations. The repository functions are asynchronous browser API clients that attach Supabase bearer tokens and call protected internal route handlers.
 
 ### 1.7 Configuration and deployment
 
 - `package.json` defines `dev`, `build`, `start`, `lint`, and `typecheck`; there is no test script.
 - `next.config.ts` enables server actions body size limit but no server actions currently exist.
 - `vercel.json` declares Next.js and `.next` output.
-- There is no `.env.example` in the current codebase even though README documents required variables.
+- `.env.example` documents required PostgreSQL, Supabase, and local development auth variables.
 
 ## 2. What the application currently does, feature by feature
 
@@ -177,8 +177,8 @@ Production implementation: Keep providers. Use toasts for API success/failure. U
 
 | Location | Current behavior | Why not production-suitable | Replacement | DB/API changes required |
 | --- | --- | --- | --- | --- |
-| `src/features/projects/project-repository.ts` `seedProjects` | Returns Atlas CRM, Pulse Mobile, Forge API when localStorage empty. | Fake data appears as user data; no auth, backup, sharing, or integrity. | API-backed repository calling server route handlers. | `GET/POST/PATCH/DELETE /api/projects`; Prisma `Project` CRUD. |
-| `src/features/projects/project-repository.ts` `localStorage` | Persists projects in browser storage. | Not secure, not durable, not multi-device, unavailable server-side. | PostgreSQL through Prisma. | Add Prisma client, repositories, route handlers. |
+| `src/features/projects/project-repository.ts` API calls | Calls protected internal project APIs with Supabase bearer tokens. | Production-ready foundation. | Expand with update/favorite/child-artifact endpoints. | Additional `PATCH` and child CRUD APIs. |
+| Project persistence | Persists projects in PostgreSQL through Prisma. | Production-ready foundation. | Add module-level CRUD and collaboration later. | Child artifact APIs and future workspace membership tables. |
 | `networkDelayMs` and `delay()` | Simulates API latency. | Misrepresents real network/database failures. | Real fetch latency and TanStack loading/error states. | None beyond API implementation. |
 | `src/data/mock.ts` `sampleProjects` | Dashboard sample cards. | Fake projects and scores. | Database-backed project list. | `GET /api/projects`, optional summary aggregates. |
 | `src/data/mock.ts` `checklist` | Static progress checklist. | Not tied to actual artifacts. | Computed readiness based on persisted section completion. | Query counts/completion states from child tables. |

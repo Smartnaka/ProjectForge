@@ -4,7 +4,7 @@ This document summarizes the recommended production architecture for the current
 
 ## Current application snapshot
 
-ProjectForge is a Next.js App Router application with client-rendered workspace pages. The landing page, dashboard, auth screens, and project detail screen are implemented under `src/app` and `src/components`. The code already uses TanStack Query and a feature repository abstraction for projects, but that repository currently reads seed data from `localStorage`. Prisma schema files exist under `prisma`, but there is no runtime Prisma client or API route layer yet.
+ProjectForge is a Next.js App Router application with client-rendered workspace pages. The landing page, dashboard, auth screens, and project detail screen are implemented under `src/app` and `src/components`. TanStack Query calls a feature repository abstraction that talks to protected internal API routes. Prisma schema and migration files live under `prisma`, while runtime database access is centralized in `src/lib/prisma.ts`.
 
 ## Recommended production shape
 
