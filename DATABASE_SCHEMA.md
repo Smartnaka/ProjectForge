@@ -209,7 +209,7 @@ Purpose: freeform project notes.
 | `projectId` | UUID/string | Yes | none | FK to `Project.id`. |
 | `markdown` | text | Yes | none | Note content. |
 
-Constraints/indexes: index `projectId`; cascade on project delete. Add timestamps.
+Constraints/indexes: index `projectId`; cascade on project delete; timestamps are implemented in the Prisma schema.
 
 ## Notifications
 
@@ -246,8 +246,8 @@ erDiagram
 
 ## Required schema improvements before production
 
-1. Add `createdAt` and `updatedAt` to every editable child entity.
+1. Implemented: `createdAt` and `updatedAt` are present on every editable child entity in `prisma/schema.prisma`.
 2. Decide whether UI status `Architecture` should become `ACTIVE`, whether UI `Ready` should become `COMPLETED`, or whether the Prisma enum should be expanded.
 3. Convert `platform`, `Requirement.type`, and `ApiEndpoint.method` to enums if the app will enforce fixed options.
 4. Add `deletedAt`/soft archive only to entities that need restore behavior. `Project.archivedAt` is already present.
-5. Create a fresh baseline migration if the existing SQL migration is incomplete for a new database, or generate a full initial migration from Prisma before production.
+5. Implemented: the production readiness migration is a full initial migration generated from the Prisma schema for fresh PostgreSQL databases.

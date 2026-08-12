@@ -1,14 +1,30 @@
 import { requireUser } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
+import { toApiProject } from "@/lib/project-presenter";
 import { NextResponse } from "next/server";
+
+const projectInclude = {
+  tags: true,
+  discoveries: true,
+  requirements: { orderBy: { position: "asc" as const } },
+  stories: true,
+  features: true,
+  endpoints: true,
+  tables: true,
+  tasks: { orderBy: { position: "asc" as const } },
+  docs: true,
+};
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireUser(request);
     const { id } = await params;
-    const project = await getPrisma().project.findFirst({ where: { id, ownerId: user.id, archivedAt: null }, include: { tags: true, discoveries: true, requirements: { orderBy: { position: "asc" } }, stories: true, features: true, endpoints: true, tables: { include: { columns: true } }, tasks: { orderBy: { position: "asc" } }, docs: true, notes: true } });
+    const project = await getPrisma().project.findFirst({
+      where: { id, ownerId: user.id, archivedAt: null },
+      include: projectInclude,
+    });
     if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    return NextResponse.json({ ...project, tags: project.tags.map((tag) => tag.name) });
+    return NextResponse.json(toApiProject(project));
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to load project" }, { status: 401 });
   }
