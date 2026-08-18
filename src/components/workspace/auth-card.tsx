@@ -3,63 +3,80 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/feedback/toast";
-import { authCopy, routes } from "@/data/content";
+import { authCopy } from "@/data/content";
 import { createBrowserSupabaseClient } from "@/lib/supabase-client";
-import { authSchema } from "@/lib/schemas";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import type { z } from "zod";
 
-type AuthForm = z.infer<typeof authSchema>;
-
-export function AuthCard({ mode }: { mode: "login" | "register" | "forgot" }) {
-  const router = useRouter();
+export function AuthCard({ mode = "login" }: { mode?: "login" | "register" | "forgot" }) {
   const { notify } = useToast();
   const [busy, setBusy] = useState(false);
-  const { register, handleSubmit, formState: { errors } } = useForm<AuthForm>();
 
-  async function handleAuthSubmit(values: AuthForm) {
+  async function handleGithubSignIn() {
     setBusy(true);
     try {
       const supabase = createBrowserSupabaseClient();
-      if (mode === "forgot") {
-        const { error } = await supabase.auth.resetPasswordForEmail(values.email, { redirectTo: `${window.location.origin}${routes.login}` });
-        if (error) throw error;
-        notify({ title: "Password reset email sent", description: "Check your inbox for the recovery link.", tone: "success" });
-        router.push(routes.login);
-        return;
-      }
-      const result = mode === "register"
-        ? await supabase.auth.signUp({ email: values.email, password: values.password })
-        : await supabase.auth.signInWithPassword({ email: values.email, password: values.password });
-      if (result.error) throw result.error;
-      notify({ title: mode === "register" ? "Account created" : "Signed in", tone: "success" });
-      router.push(routes.dashboard);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "github",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) throw error;
     } catch (error) {
-      notify({ title: "Authentication failed", description: error instanceof Error ? error.message : "Please try again.", tone: "error" });
-    } finally {
       setBusy(false);
+      notify({
+        title: "Authentication failed",
+        description: error instanceof Error ? error.message : "Unable to connect to GitHub. Please try again.",
+        tone: "error",
+      });
     }
   }
 
   return (
     <main className="grid min-h-screen place-items-center bg-[var(--background)] p-6">
-      <Card className="w-full max-w-md">
-        <h1 className="text-2xl font-bold">{authCopy.title[mode]}</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">{authCopy.subtitle}</p>
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit(handleAuthSubmit)}>
-          <input className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30" placeholder={authCopy.emailPlaceholder} autoComplete="email" {...register("email", { required: authCopy.emailRequired, validate: (value) => authSchema.shape.email.safeParse(value).success || authCopy.emailInvalid })} />
-          {errors.email && <p className="text-sm font-medium text-red-600 dark:text-red-300">{errors.email.message}</p>}
-          {mode !== "forgot" && <><input className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30" placeholder={authCopy.passwordPlaceholder} type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} {...register("password", { required: authCopy.passwordRequired, validate: (value) => authSchema.shape.password.safeParse(value).success || authCopy.passwordInvalid })} />{errors.password && <p className="text-sm font-medium text-red-600 dark:text-red-300">{errors.password.message}</p>}</>}
-          <Button className="w-full" disabled={busy}>{busy ? "Please wait..." : authCopy.continue}</Button>
-        </form>
-        <div className="mt-4 flex justify-between text-sm font-medium text-[var(--muted)]">
-          <a className="hover:text-[var(--foreground)]" href={routes.login}>{authCopy.login}</a>
-          <a className="hover:text-[var(--foreground)]" href={routes.register}>{authCopy.register}</a>
-          <a className="hover:text-[var(--foreground)]" href={routes.forgotPassword}>{authCopy.forgot}</a>
+      <Card className="w-full max-w-md text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md">
+          <GithubIcon size={24} />
         </div>
+        <h1 className="text-2xl font-bold">{authCopy.title[mode] || "Sign in to ProjectForge"}</h1>
+        <p className="mt-2 text-sm text-[var(--muted)]">{authCopy.subtitle}</p>
+
+        <div className="mt-8 space-y-4">
+          <Button
+            className="w-full py-3 text-base flex items-center justify-center gap-3 bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 transition shadow-md"
+            onClick={handleGithubSignIn}
+            disabled={busy}
+          >
+            <GithubIcon size={20} />
+            {busy ? "Connecting to GitHub..." : authCopy.githubCta}
+          </Button>
+        </div>
+
+        <p className="mt-6 text-xs text-[var(--muted)] leading-5">
+          By continuing, you agree to connect your GitHub account to access your production planning workspace.
+        </p>
       </Card>
     </main>
   );
 }
+
+function GithubIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+      <path d="M9 18c-4.51 2-5-2-7-2" />
+    </svg>
+  );
+}
+

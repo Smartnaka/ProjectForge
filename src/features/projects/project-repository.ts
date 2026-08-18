@@ -50,3 +50,35 @@ export async function archiveProject(id: string): Promise<void> {
   const response = await fetch(`/api/projects/${encodeURIComponent(id)}`, { method: "DELETE", headers: await authHeaders() });
   if (!response.ok) throw new Error("Unable to archive project");
 }
+
+export async function fetchSubmodule<T>(projectId: string, subPath: string): Promise<T> {
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/${subPath}`, { headers: await authHeaders() });
+  return parseJson<T>(response);
+}
+
+export async function createSubmoduleItem<T>(projectId: string, subPath: string, payload: any): Promise<T> {
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/${subPath}`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return parseJson<T>(response);
+}
+
+export async function updateSubmoduleItem<T>(projectId: string, subPath: string, itemId: string, payload: any): Promise<T> {
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/${subPath}/${encodeURIComponent(itemId)}`, {
+    method: "PATCH",
+    headers: await authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return parseJson<T>(response);
+}
+
+export async function deleteSubmoduleItem(projectId: string, subPath: string, itemId: string): Promise<void> {
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/${subPath}/${encodeURIComponent(itemId)}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
+  if (!response.ok) throw new Error("Unable to delete item");
+}
+

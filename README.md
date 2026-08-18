@@ -12,7 +12,7 @@ The workspace is now wired for real authenticated, database-backed project data.
 - Tailwind CSS design tokens and reusable UI primitives
 - TanStack Query for caching, retries, loading states, and mutations
 - React Hook Form and Zod for form state and validation
-- Supabase Auth for registration, login, password recovery, and JWT validation
+- Supabase Auth with GitHub OAuth authentication and JWT token validation
 - Prisma with PostgreSQL persistence
 - Recharts and Lucide for workspace charts and icons
 

@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/auth";
+import { AuthError, requireUser } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { toApiProject } from "@/lib/project-presenter";
 import { NextResponse } from "next/server";
@@ -26,7 +26,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
     return NextResponse.json(toApiProject(project));
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to load project" }, { status: 401 });
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Unable to load project" }, { status: 500 });
   }
 }
 
@@ -34,9 +37,19 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   try {
     const user = await requireUser(request);
     const { id } = await params;
-    await getPrisma().project.updateMany({ where: { id, ownerId: user.id, archivedAt: null }, data: { archivedAt: new Date(), status: "ARCHIVED" } });
+    const result = await getPrisma().project.updateMany({
+      where: { id, ownerId: user.id, archivedAt: null },
+      data: { archivedAt: new Date(), status: "ARCHIVED" },
+    });
+    if (result.count === 0) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to archive project" }, { status: 401 });
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Unable to archive project" }, { status: 500 });
   }
 }
+

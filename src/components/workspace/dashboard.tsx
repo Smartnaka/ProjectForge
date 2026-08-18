@@ -4,20 +4,30 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { dashboardCopy, brand } from "@/data/content";
+import { dashboardCopy, brand, routes } from "@/data/content";
 import { projectMutations, projectQueries } from "@/features/projects/queries";
 import { createProjectSchema } from "@/lib/schemas";
+import { createBrowserSupabaseClient } from "@/lib/supabase-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, Bell, Heart, Plus, Search, Settings } from "lucide-react";
+import { Archive, Bell, Heart, LogOut, Plus, Search, Settings } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip } from "recharts";
 
 export function Dashboard() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const queryClient = useQueryClient();
-  const filters = { search, status: "All" as const, sort: "updatedAt" as const, page: 1, pageSize: 12 };
+  const filters = { search: debouncedSearch, status: "All" as const, sort: "updatedAt" as const, page: 1, pageSize: 12 };
   const { data, isLoading, error } = useQuery(projectQueries.list(filters));
+
   const createMutation = useMutation({ mutationFn: projectMutations.createProject, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }) });
   const archiveMutation = useMutation({ mutationFn: projectMutations.archiveProject, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }) });
   const projects = data?.projects ?? [];
@@ -29,9 +39,15 @@ export function Dashboard() {
     createMutation.mutate(createProjectSchema.parse({ name: `Untitled project ${new Date().toLocaleDateString()}`, description: "New production planning workspace ready for real project data.", platform: "Web", priority: "Medium", deadline: null }));
   }
 
+  async function handleSignOut() {
+    const supabase = createBrowserSupabaseClient();
+    await supabase.auth.signOut();
+    router.push(routes.login);
+  }
+
   return (
     <main className="min-h-screen bg-[var(--background)]">
-      <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--background)]/90 backdrop-blur"><div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4"><b>{brand.name}</b><label className="hidden items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--muted)] md:flex"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={dashboardCopy.searchPlaceholder} className="bg-transparent outline-none" /></label><div className="flex gap-3 text-[var(--muted)]" aria-label="Workspace actions"><Bell size={20} /><Settings size={20} /></div></div></header>
+      <header className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--background)]/90 backdrop-blur"><div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4"><b>{brand.name}</b><label className="hidden items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--muted)] md:flex"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={dashboardCopy.searchPlaceholder} className="bg-transparent outline-none" /></label><div className="flex gap-3 text-[var(--muted)] items-center" aria-label="Workspace actions"><Bell size={20} /><Settings size={20} /><button onClick={handleSignOut} aria-label="Sign out" title="Sign out" className="hover:text-[var(--foreground)] transition"><LogOut size={20} /></button></div></div></header>
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><h1 className="text-3xl font-bold">{dashboardCopy.title}</h1><p className="text-[var(--muted)]">{dashboardCopy.subtitle}</p></div><Button onClick={createBlankProject} disabled={createMutation.isPending}><Plus size={16} /> {createMutation.isPending ? "Creating..." : dashboardCopy.createProject}</Button></div>
         <div className="grid gap-4 lg:grid-cols-4"><Stat label="Projects" value={String(data?.total ?? 0)} /><Stat label="Avg readiness" value={`${avgScore}%`} /><Stat label="Open tasks" value={String(openTasks)} /><Stat label="Search results" value={String(projects.length)} /></div>

@@ -1,1 +1,1 @@
-import { AuthCard } from "@/components/workspace/auth-card"; export default function Page(){return <AuthCard mode="forgot"/>}
+import { redirect } from "next/navigation"; export default function Page(){ redirect("/auth/login"); }

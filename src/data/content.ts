@@ -82,22 +82,13 @@ export const dashboardCopy = {
 
 export const authCopy = {
   title: {
-    login: "Welcome back",
+    login: "Sign in to ProjectForge",
     register: "Create your workspace",
-    forgot: "Reset password",
+    forgot: "Sign in to ProjectForge",
   },
   subtitle:
-    "Secure Supabase authentication with email verification and password recovery flows.",
-  emailPlaceholder: "Email",
-  passwordPlaceholder: "Password",
-  emailRequired: "Email is required",
-  emailInvalid: "Please enter a valid email address",
-  passwordRequired: "Password is required",
-  passwordInvalid: "Password must be at least 8 characters",
-  continue: "Continue",
-  login: "Login",
-  register: "Register",
-  forgot: "Forgot",
+    "Secure GitHub OAuth authentication backed by Supabase Auth.",
+  githubCta: "Continue with GitHub",
 };
 
 export const marketingFeatures = [
